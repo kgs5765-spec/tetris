@@ -2,10 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>테트리스</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>성연 테트리스</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
     background: #1a1a1e;
@@ -14,19 +15,26 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
+    padding: 16px;
+    overscroll-behavior: none;
   }
   .wrap {
     display: flex;
     gap: 24px;
     flex-wrap: wrap;
     justify-content: center;
+    width: 100%;
+    max-width: 760px;
   }
-  .left { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .left { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  h1 { font-size: 20px; font-weight: 500; color: #ccc; }
   canvas#board {
     border: 1px solid #3a3a40;
     border-radius: 8px;
     background: #232328;
+    max-width: 100%;
+    height: auto;
+    touch-action: none;
   }
   .controls {
     font-size: 12px;
@@ -34,11 +42,32 @@
     text-align: center;
     line-height: 1.7;
   }
+  /* 모바일 터치 버튼 */
+  .touchpad {
+    display: none;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    width: 100%;
+    max-width: 320px;
+  }
+  .touchpad button {
+    padding: 16px 0;
+    font-size: 20px;
+    border: 1px solid #4a4a52;
+    background: #2e2e35;
+    color: #e8e8e8;
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .touchpad button:active { background: #44444c; }
+  .touchpad .wide { grid-column: span 2; }
   .side {
     display: flex;
     flex-direction: column;
     gap: 14px;
-    min-width: 150px;
+    min-width: 210px;
+    flex: 1;
   }
   .stat {
     background: #232328;
@@ -47,6 +76,8 @@
   }
   .stat .label { font-size: 13px; color: #999; margin-bottom: 4px; }
   .stat .value { font-size: 26px; font-weight: 500; }
+  .statrow { display: flex; gap: 14px; }
+  .statrow .stat { flex: 1; }
   canvas#next { display: block; }
   button {
     font-size: 15px;
@@ -60,43 +91,143 @@
   }
   button:hover { background: #3a3a44; }
   button:active { transform: scale(0.98); }
-  h1 { font-size: 18px; font-weight: 500; color: #ccc; }
+  .rank {
+    background: #232328;
+    border-radius: 8px;
+    padding: 12px 16px;
+    max-height: 340px;
+    overflow-y: auto;
+  }
+  .rank .label {
+    font-size: 13px; color: #999; margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .rank table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .rank td { padding: 4px 2px; }
+  .rank .pos { color: #888; width: 28px; }
+  .rank .nm { color: #e8e8e8; }
+  .rank .sc { text-align: right; color: #EF9F27; font-weight: 500; }
+  .rank tr.top1 .sc, .rank tr.top1 .pos { color: #FFD54A; }
+  .rank .empty { color: #666; font-size: 12px; padding: 8px 2px; }
+  .reloadBtn { font-size: 11px; padding: 4px 8px; }
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 10; padding: 16px;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: #2a2a30;
+    border: 1px solid #44444c;
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%; max-width: 320px;
+    text-align: center;
+  }
+  .modal h2 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+  .modal .final { font-size: 14px; color: #999; margin-bottom: 16px; }
+  .modal .final b { color: #EF9F27; font-size: 22px; }
+  .field { text-align: left; margin-bottom: 12px; }
+  .field label { display: block; font-size: 13px; color: #aaa; margin-bottom: 4px; }
+  .field select, .field input {
+    width: 100%; font-size: 15px; padding: 10px;
+    border: 1px solid #4a4a52; background: #1f1f24;
+    color: #e8e8e8; border-radius: 8px;
+  }
+  .modal .row { display: flex; gap: 8px; margin-top: 4px; }
+  .modal .row button { flex: 1; }
+  .saveBtn { background: #3b6d11; border-color: #4d8a18; }
+  .saveBtn:hover { background: #4a8417; }
+  .modal .msg { font-size: 12px; color: #888; margin-top: 10px; min-height: 16px; }
+  .grade2 { display: flex; gap: 8px; }
+  .grade2 select { flex: 1; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="left">
-    <h1>테트리스</h1>
+    <h1>성연 테트리스</h1>
     <canvas id="board" width="300" height="600"></canvas>
-    <div class="controls">
+    <div class="controls" id="kbControls">
       ← → 이동 &nbsp;·&nbsp; ↑ 회전 &nbsp;·&nbsp; ↓ 소프트드롭<br>
       스페이스 하드드롭 &nbsp;·&nbsp; P 일시정지
     </div>
+    <div class="touchpad" id="touchpad">
+      <button data-act="left">◀</button>
+      <button data-act="rotate">⟳</button>
+      <button data-act="down">▼</button>
+      <button data-act="right">▶</button>
+      <button data-act="drop" class="wide">하드드롭</button>
+      <button data-act="pause" class="wide">일시정지</button>
+    </div>
   </div>
   <div class="side">
-    <div class="stat">
-      <div class="label">점수</div>
-      <div class="value" id="score">0</div>
+    <div class="statrow">
+      <div class="stat">
+        <div class="label">점수</div>
+        <div class="value" id="score">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">레벨</div>
+        <div class="value" id="level">1</div>
+      </div>
     </div>
-    <div class="stat">
-      <div class="label">레벨</div>
-      <div class="value" id="level">1</div>
-    </div>
-    <div class="stat">
-      <div class="label">라인</div>
-      <div class="value" id="lines">0</div>
-    </div>
-    <div class="stat">
-      <div class="label" style="margin-bottom:6px;">다음</div>
-      <canvas id="next" width="110" height="110"></canvas>
+    <div class="statrow">
+      <div class="stat">
+        <div class="label">라인</div>
+        <div class="value" id="lines">0</div>
+      </div>
+      <div class="stat">
+        <div class="label" style="margin-bottom:6px;">다음</div>
+        <canvas id="next" width="86" height="86"></canvas>
+      </div>
     </div>
     <button id="startBtn">새 게임</button>
+    <div class="rank">
+      <div class="label">
+        <span>전체 순위 (1~20등)</span>
+        <button class="reloadBtn" id="reloadBtn">새로고침</button>
+      </div>
+      <table id="rankTable"></table>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2>게임 오버</h2>
+    <div class="final">최종 점수 <b id="finalScore">0</b></div>
+    <div class="field">
+      <label>학년 / 반</label>
+      <div class="grade2">
+        <select id="gradeSel"></select>
+        <select id="classSel"></select>
+      </div>
+    </div>
+    <div class="field">
+      <label>이름</label>
+      <input type="text" id="nameInput" maxlength="10" placeholder="이름을 입력하세요">
+    </div>
+    <div class="row">
+      <button id="skipBtn">건너뛰기</button>
+      <button class="saveBtn" id="saveBtn">점수 저장</button>
+    </div>
+    <div class="msg" id="modalMsg"></div>
   </div>
 </div>
 
 <script>
 (function(){
+  /* ===== 구글 앱 스크립트 주소 ===== */
+  /* 아래 따옴표 안에 본인의 앱 스크립트 웹앱 URL을 붙여넣으세요. */
+  const SHEET_API = "https://script.google.com/macros/s/AKfycbxnhNguYrK69dkRwBK_Vc5RQhdsrmwGbJKHWPOPl0zHSE4tOTcSXQIbV-jLBxgnZXLfzA/exec";
+  /* ================================ */
+
   const COLS = 10, ROWS = 20, CELL = 30;
+  const MAX_GRADE = 6, MAX_CLASS = 13, SHOW_RANK = 20;
+
   const board = document.getElementById('board');
   const ctx = board.getContext('2d');
   const nextCanvas = document.getElementById('next');
@@ -105,27 +236,86 @@
   const levelEl = document.getElementById('level');
   const linesEl = document.getElementById('lines');
   const startBtn = document.getElementById('startBtn');
+  const reloadBtn = document.getElementById('reloadBtn');
+  const rankTable = document.getElementById('rankTable');
+  const overlay = document.getElementById('overlay');
+  const finalScoreEl = document.getElementById('finalScore');
+  const gradeSel = document.getElementById('gradeSel');
+  const classSel = document.getElementById('classSel');
+  const nameInput = document.getElementById('nameInput');
+  const saveBtn = document.getElementById('saveBtn');
+  const skipBtn = document.getElementById('skipBtn');
+  const modalMsg = document.getElementById('modalMsg');
+  const touchpad = document.getElementById('touchpad');
+  const kbControls = document.getElementById('kbControls');
+
+  for(let g=1; g<=MAX_GRADE; g++){
+    const o=document.createElement('option'); o.value=g; o.textContent=g+'학년'; gradeSel.appendChild(o);
+  }
+  for(let c=1; c<=MAX_CLASS; c++){
+    const o=document.createElement('option'); o.value=c; o.textContent=c+'반'; classSel.appendChild(o);
+  }
+
+  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints>0;
+  if(isTouch){ touchpad.style.display='grid'; kbControls.style.display='none'; }
 
   const COLORS = {
     I:'#378ADD', O:'#EF9F27', T:'#7F77DD', S:'#639922',
     Z:'#E24B4A', J:'#185FA5', L:'#D85A30'
   };
   const SHAPES = {
-    I:[[1,1,1,1]],
-    O:[[1,1],[1,1]],
-    T:[[0,1,0],[1,1,1]],
-    S:[[0,1,1],[1,1,0]],
-    Z:[[1,1,0],[0,1,1]],
-    J:[[1,0,0],[1,1,1]],
-    L:[[0,0,1],[1,1,1]]
+    I:[[1,1,1,1]], O:[[1,1],[1,1]], T:[[0,1,0],[1,1,1]],
+    S:[[0,1,1],[1,1,0]], Z:[[1,1,0],[0,1,1]],
+    J:[[1,0,0],[1,1,1]], L:[[0,0,1],[1,1,1]]
   };
   const KEYS = Object.keys(SHAPES);
 
   let grid, current, next, score, level, lines, dropCounter, dropInterval, lastTime, running, paused, gameOver;
+  let apiReady = SHEET_API && SHEET_API.indexOf('http')===0;
 
-  function newGrid(){
-    return Array.from({length:ROWS}, ()=>Array(COLS).fill(null));
+  /* ===== 구글 시트 연동 ===== */
+  function fetchRanking(){
+    if(!apiReady){
+      rankTable.innerHTML = '<tr><td class="empty">구글 시트 주소가 설정되지 않았어요</td></tr>';
+      return;
+    }
+    rankTable.innerHTML = '<tr><td class="empty">불러오는 중...</td></tr>';
+    fetch(SHEET_API + '?action=list')
+      .then(r=>r.json())
+      .then(data=>{ renderRanking(data.ranking || []); })
+      .catch(e=>{ rankTable.innerHTML = '<tr><td class="empty">순위를 불러오지 못했어요</td></tr>'; });
   }
+  function submitScore(grade, klass, name, sc){
+    return fetch(SHEET_API, {
+      method: 'POST',
+      body: JSON.stringify({ grade:grade, klass:klass, name:name, score:sc })
+    }).then(r=>r.json());
+  }
+  function renderRanking(list){
+    if(!list || list.length===0){
+      rankTable.innerHTML = '<tr><td class="empty">아직 기록이 없어요</td></tr>';
+      return;
+    }
+    list.sort((a,b)=>b.score-a.score);
+    const top = list.slice(0, SHOW_RANK);
+    let html='';
+    top.forEach((r,i)=>{
+      const cls = i===0 ? ' class="top1"' : '';
+      const who = r.grade+'-'+r.klass+' '+escapeHtml(r.name);
+      html += '<tr'+cls+'><td class="pos">'+(i+1)+'</td>'
+            + '<td class="nm">'+who+'</td>'
+            + '<td class="sc">'+r.score+'</td></tr>';
+    });
+    rankTable.innerHTML = html;
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  /* ===== 게임 로직 ===== */
+  function newGrid(){ return Array.from({length:ROWS}, ()=>Array(COLS).fill(null)); }
   function randomPiece(){
     const t = KEYS[Math.floor(Math.random()*KEYS.length)];
     return { type:t, shape:SHAPES[t].map(r=>r.slice()), x:Math.floor((COLS-SHAPES[t][0].length)/2), y:0 };
@@ -156,10 +346,8 @@
     let cleared=0;
     for(let r=ROWS-1;r>=0;r--){
       if(grid[r].every(cell=>cell)){
-        grid.splice(r,1);
-        grid.unshift(Array(COLS).fill(null));
-        cleared++;
-        r++;
+        grid.splice(r,1); grid.unshift(Array(COLS).fill(null));
+        cleared++; r++;
       }
     }
     if(cleared){
@@ -172,9 +360,7 @@
     }
   }
   function updateStats(){
-    scoreEl.textContent=score;
-    levelEl.textContent=level;
-    linesEl.textContent=lines;
+    scoreEl.textContent=score; levelEl.textContent=level; linesEl.textContent=lines;
   }
   function drawCell(c, x, y, color, size){
     c.fillStyle=color;
@@ -210,25 +396,21 @@
     if(gameOver){
       ctx.fillStyle='rgba(0,0,0,0.62)';
       ctx.fillRect(0,0,board.width,board.height);
-      ctx.fillStyle='#fff';
-      ctx.font='500 30px sans-serif';
-      ctx.textAlign='center';
+      ctx.fillStyle='#fff'; ctx.font='500 30px sans-serif'; ctx.textAlign='center';
       ctx.fillText('게임 오버',board.width/2,board.height/2-10);
       ctx.font='400 16px sans-serif';
       ctx.fillText('새 게임을 눌러 다시 시작',board.width/2,board.height/2+24);
     } else if(paused){
       ctx.fillStyle='rgba(0,0,0,0.55)';
       ctx.fillRect(0,0,board.width,board.height);
-      ctx.fillStyle='#fff';
-      ctx.font='500 28px sans-serif';
-      ctx.textAlign='center';
+      ctx.fillStyle='#fff'; ctx.font='500 28px sans-serif'; ctx.textAlign='center';
       ctx.fillText('일시정지',board.width/2,board.height/2);
     }
   }
   function drawNext(){
     nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
     if(!next) return;
-    const s=22;
+    const s=17;
     const w=next.shape[0].length, h=next.shape.length;
     const ox=(nextCanvas.width-w*s)/2, oy=(nextCanvas.height-h*s)/2;
     for(let r=0;r<h;r++)for(let c=0;c<w;c++){
@@ -248,31 +430,30 @@
     drawNext();
     if(collide(current,grid)){
       gameOver=true; running=false;
+      draw();
+      showGameOverModal();
     }
+  }
+  function showGameOverModal(){
+    finalScoreEl.textContent = score;
+    nameInput.value = '';
+    modalMsg.textContent = '';
+    saveBtn.disabled = false;
+    overlay.classList.add('show');
   }
   function softDrop(){
     const test={...current,y:current.y+1};
-    if(collide(test,grid)){
-      merge(current,grid);
-      clearLines();
-      spawn();
-    } else {
-      current.y++;
-    }
+    if(collide(test,grid)){ merge(current,grid); clearLines(); spawn(); }
+    else { current.y++; }
     dropCounter=0;
   }
   function hardDrop(){
     while(true){
       const test={...current,y:current.y+1};
       if(collide(test,grid))break;
-      current.y++;
-      score+=2;
+      current.y++; score+=2;
     }
-    merge(current,grid);
-    clearLines();
-    spawn();
-    updateStats();
-    dropCounter=0;
+    merge(current,grid); clearLines(); spawn(); updateStats(); dropCounter=0;
   }
   function move(dir){
     const test={...current,x:current.x+dir};
@@ -287,20 +468,25 @@
       if(!collide(test,grid)){ current.shape=rotated; current.x=test.x; return; }
     }
   }
+  function togglePause(){
+    if(running && !gameOver){
+      paused=!paused;
+      if(!paused){ lastTime=performance.now(); requestAnimationFrame(loop); }
+      draw();
+    }
+  }
   function loop(time){
     if(!running){ draw(); return; }
     if(!paused){
-      const dt=time-lastTime;
-      lastTime=time;
+      const dt=time-lastTime; lastTime=time;
       dropCounter+=dt;
       if(dropCounter>dropInterval) softDrop();
-    } else {
-      lastTime=time;
-    }
+    } else { lastTime=time; }
     draw();
     requestAnimationFrame(loop);
   }
   function startGame(){
+    overlay.classList.remove('show');
     grid=newGrid();
     score=0; level=1; lines=0;
     dropCounter=0; dropInterval=1000;
@@ -312,25 +498,68 @@
     requestAnimationFrame(loop);
   }
 
-  document.addEventListener('keydown',e=>{
-    if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
-    if(e.key==='p'||e.key==='P'){
-      if(running && !gameOver){ paused=!paused; if(!paused){lastTime=performance.now();requestAnimationFrame(loop);} draw(); }
-      return;
-    }
+  /* ===== 입력 처리 ===== */
+  function gameAction(act){
+    if(overlay.classList.contains('show')) return;
+    if(act==='pause'){ togglePause(); return; }
     if(!running||paused||gameOver) return;
-    if(e.key==='ArrowLeft') move(-1);
-    else if(e.key==='ArrowRight') move(1);
-    else if(e.key==='ArrowUp') doRotate();
-    else if(e.key==='ArrowDown') softDrop();
-    else if(e.key===' ') hardDrop();
+    if(act==='left') move(-1);
+    else if(act==='right') move(1);
+    else if(act==='rotate') doRotate();
+    else if(act==='down') softDrop();
+    else if(act==='drop') hardDrop();
     draw();
+  }
+  document.addEventListener('keydown',e=>{
+    if(overlay.classList.contains('show')) return;
+    if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
+    if(e.key==='p'||e.key==='P'){ gameAction('pause'); return; }
+    if(e.key==='ArrowLeft') gameAction('left');
+    else if(e.key==='ArrowRight') gameAction('right');
+    else if(e.key==='ArrowUp') gameAction('rotate');
+    else if(e.key==='ArrowDown') gameAction('down');
+    else if(e.key===' ') gameAction('drop');
   });
-  startBtn.addEventListener('click',startGame);
+  touchpad.querySelectorAll('button').forEach(btn=>{
+    const act = btn.getAttribute('data-act');
+    btn.addEventListener('touchstart', function(e){
+      e.preventDefault();
+      gameAction(act);
+    }, {passive:false});
+    btn.addEventListener('click', function(){ gameAction(act); });
+  });
 
+  startBtn.addEventListener('click', startGame);
+  reloadBtn.addEventListener('click', fetchRanking);
+
+  saveBtn.addEventListener('click', function(){
+    const name = nameInput.value.trim();
+    if(!name){ modalMsg.textContent='이름을 입력해 주세요.'; nameInput.focus(); return; }
+    if(!apiReady){ modalMsg.textContent='구글 시트 주소가 설정되지 않았어요.'; return; }
+    saveBtn.disabled = true;
+    modalMsg.textContent = '저장 중...';
+    submitScore(gradeSel.value, classSel.value, name, score)
+      .then(res=>{
+        modalMsg.textContent = '저장 완료!';
+        if(res && res.ranking) renderRanking(res.ranking);
+        else fetchRanking();
+        setTimeout(()=>overlay.classList.remove('show'), 700);
+      })
+      .catch(e=>{
+        modalMsg.textContent = '저장 실패. 인터넷 연결을 확인하세요.';
+        saveBtn.disabled = false;
+      });
+  });
+  skipBtn.addEventListener('click', function(){ overlay.classList.remove('show'); });
+  nameInput.addEventListener('keydown', function(e){
+    if(e.key==='Enter'){ e.preventDefault(); saveBtn.click(); }
+  });
+
+  /* 초기화 */
   grid=newGrid(); current=null; next=null; gameOver=false; paused=false; running=false;
   score=0; level=1; lines=0;
   draw();
+  fetchRanking();
 })();
 </script>
 </body>
